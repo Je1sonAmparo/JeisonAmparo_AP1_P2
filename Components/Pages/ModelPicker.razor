@@ -1,0 +1,27 @@
+@* @using RegistroLibro.Models
+
+<div class="col-auto input-group align-items-center">
+    <label class="col-form-label input-group-text">Seleccione:</label>
+
+    <InputSelect class="form-control form-select" @bind-Value="LibroId">
+        <option disabled value="0">-- Seleccione un libro --</option>
+        @foreach (var libro in Libros)
+        {
+            <option value="@libro.LibroId">@libro.LibroId - @libro.Titulo (Disponibles: @libro.CantidadDisponible)</option>
+        }
+    </InputSelect>
+    <label class="col-form-label input-group-text">Cantidad:</label>
+    <InputNumber class="form-control" id="quantity-input" @bind-Value="Cantidad" min="1" />
+
+    <button type="button" class="btn btn-outline-success bi bi-plus" @onclick="TriggerSelection">Agregar</button>
+</div>
+@if (ErrorMessage != null)
+{
+    <div class="alert alert-danger mt-2" role="alert">
+        @ErrorMessage
+    </div>
+}
+
+@code {
+
+} *@
