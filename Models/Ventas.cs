@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace JeisonAmparo_AP1_P2.Models;
 
@@ -15,4 +16,7 @@ public class Ventas
 
     [Range(0.01, double.MaxValue, ErrorMessage = "El total debe ser mayor que cero")]
     public double Total { get; set; }
+
+    [InverseProperty("Venta")]
+    public virtual ICollection<VentasDetalle> Detalles { get; set; } = new List<VentasDetalle>();
 }

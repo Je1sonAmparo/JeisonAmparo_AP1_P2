@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace JeisonAmparo_AP1_P2.Models;
 
@@ -15,4 +16,7 @@ public class Productos
 
     [Range(0, int.MaxValue, ErrorMessage = "El stock no puede ser negativo")]
     public int Stock { get; set; }
+
+    [InverseProperty("Producto")]
+    public virtual ICollection<VentasDetalle> VentasDetalle { get; set; } = new List<VentasDetalle>();
 }
