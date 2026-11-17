@@ -43,12 +43,8 @@
                         <QuickGrid Items="Venta.Detalles.AsQueryable()" Class="table table-hover mt-3">
                             <PropertyColumn Property="@(d => d.ProductoId)" Title="ProductoId" Sortable="true" />
                             <TemplateColumn Title="Cantidad" Context="detalle">
-                                <InputNumber class="form-control" @bind-Value="detalle.Cantidad" @bind-Value:after="ActualizarTotal" min="1" max="@StockDisponible(detalle.ProductoId)" />
+                                <InputNumber class="form-control" @bind-Value="detalle.Cantidad" @bind-Value:after="() => ValidarCantidad(detalle)" min="1" max="@StockDisponible(detalle.ProductoId)" />
                                 <ValidationMessage For="(() => detalle.Cantidad)" />
-                                @if (detalle.Cantidad > StockDisponible(detalle.ProductoId))
-                                {
-                                    <div class="validation-message">La cantidad de este producto excede el stock disponible (@StockDisponible(detalle.ProductoId)).</div>
-                                }
                             </TemplateColumn>
                             <PropertyColumn Property="@(d => d.Precio)" Title="Precio" Format="N2" Sortable="true" />
                             <TemplateColumn Title="Remover" Align="Align.Center" Context="detalle">
@@ -160,6 +156,14 @@
             .Sum(d => d.Cantidad);
     }
 
+    private void ValidarCantidad(VentasDetalle detalle)
+    {
+        ActualizarTotal();
+        var stockDisponible = StockDisponible(detalle.ProductoId);
+        if (detalle.Cantidad > stockDisponible)
+            toastService.ShowError($"La cantidad de este producto excede el stock disponible ({stockDisponible}).");
+    }
+
     private void RemoverDetalle(VentasDetalle detalle)
     {
         Venta.Detalles.Remove(detalle);
@@ -197,10 +201,14 @@
             return;
         }
 
-        if (Venta.Detalles.Any(d => d.Cantidad > StockDisponible(d.ProductoId)))
+        foreach (var detalle in Venta.Detalles)
         {
-            toastService.ShowError("La cantidad de uno de los productos excede el stock disponible.");
-            return;
+            var stockDisponible = StockDisponible(detalle.ProductoId);
+            if (detalle.Cantidad > stockDisponible)
+            {
+                toastService.ShowError($"La cantidad de este producto excede el stock disponible ({stockDisponible}).");
+                return;
+            }
         }
 
         ActualizarTotal();
