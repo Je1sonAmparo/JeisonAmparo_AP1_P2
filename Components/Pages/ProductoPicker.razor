@@ -5,7 +5,7 @@
         <option disabled value="0">-- Seleccione un producto --</option>
         @foreach (var producto in Productos)
         {
-            <option value="@producto.ProductoId">@producto.ProductoId - @producto.Nombre</option>
+            <option value="@producto.ProductoId">@producto.ProductoId - @producto.Nombre (Stock: @producto.Stock)</option>
         }
     </InputSelect>
     <label class="col-form-label input-group-text">Cantidad:</label>
@@ -27,10 +27,13 @@
     public List<Productos> Productos { get; set; } = [];
 
     [Parameter]
+    public List<VentasDetalle> DetallesAnteriores { get; set; } = [];
+
+    [Parameter]
     public int ProductoId { get; set; }
 
     [Parameter]
-    public int Cantidad { get; set; }
+    public int Cantidad { get; set; } = 1;
 
     [Parameter]
     public EventCallback<(Productos Producto, int Cantidad)> OnProductoSelected { get; set; }
@@ -57,7 +60,19 @@
                 return;
             }
 
+            var stockDisponible = productoSeleccionado.Stock + DetallesAnteriores
+                .Where(d => d.ProductoId == ProductoId)
+                .Sum(d => d.Cantidad);
+            if (Cantidad > stockDisponible)
+            {
+                ErrorMessage = $"La cantidad de este producto excede el stock disponible ({stockDisponible}).";
+                return;
+            }
+
             await OnProductoSelected.InvokeAsync((productoSeleccionado, Cantidad));
+            ProductoId = 0;
+            Cantidad = 1;
+            Precio = 0;
         }
     }
 }
