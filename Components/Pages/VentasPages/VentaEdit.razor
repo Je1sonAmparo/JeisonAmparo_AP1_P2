@@ -6,7 +6,7 @@
 @inject ToastService toastService
 
 <PageTitle>Editar venta</PageTitle>
-<EditForm Model="Venta" OnValidSubmit="Modificar">
+<EditForm Model="Venta" OnValidSubmit="Modificar" OnInvalidSubmit="ValidarDetalles">
     <DataAnnotationsValidator />
     <div class="container">
         <div class="card shadow-lg">
@@ -187,7 +187,13 @@
         }
         else
         {
-            toastService.ShowError("No se pudo modificar la venta.");
+            toastService.ShowError("No se pudo modificar la venta. Verifique las cantidades y el stock disponible.");
         }
+    }
+
+    private void ValidarDetalles()
+    {
+        if (Venta.Detalles.Count == 0)
+            toastService.ShowError("Agregue al menos un producto a la venta.");
     }
 }
