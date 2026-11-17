@@ -15,6 +15,7 @@ builder.Services.AddDbContextFactory<Contexto>(options =>
     options.UseSqlite(ConStr));
 
 builder.Services.AddScoped<ProductosService>();
+builder.Services.AddScoped<VentasService>();
 
 builder.Services.AddBlazorBootstrap();
 
