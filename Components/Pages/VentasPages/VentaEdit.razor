@@ -34,6 +34,7 @@
                 <div class="border border-success p-3 mt-3">
                     <h5>Detalles de productos</h5>
                     <ProductoPicker Productos="ListaProductos"
+                                    DetallesAnteriores="DetallesAnteriores"
                                     ProductoId="DetalleSeleccionado.ProductoId"
                                     Cantidad="DetalleSeleccionado.Cantidad"
                                     OnProductoSelected="HandleProductoSelected" />
@@ -42,8 +43,12 @@
                         <QuickGrid Items="Venta.Detalles.AsQueryable()" Class="table table-hover mt-3">
                             <PropertyColumn Property="@(d => d.ProductoId)" Title="ProductoId" Sortable="true" />
                             <TemplateColumn Title="Cantidad" Context="detalle">
-                                <InputNumber class="form-control" @bind-Value="detalle.Cantidad" @bind-Value:after="ActualizarTotal" min="1" />
+                                <InputNumber class="form-control" @bind-Value="detalle.Cantidad" @bind-Value:after="ActualizarTotal" min="1" max="@StockDisponible(detalle.ProductoId)" />
                                 <ValidationMessage For="(() => detalle.Cantidad)" />
+                                @if (detalle.Cantidad > StockDisponible(detalle.ProductoId))
+                                {
+                                    <div class="validation-message">La cantidad de este producto excede el stock disponible (@StockDisponible(detalle.ProductoId)).</div>
+                                }
                             </TemplateColumn>
                             <PropertyColumn Property="@(d => d.Precio)" Title="Precio" Format="N2" Sortable="true" />
                             <TemplateColumn Title="Remover" Align="Align.Center" Context="detalle">
@@ -96,8 +101,9 @@
     public int VentaId { get; set; }
 
     public Ventas Venta { get; set; } = new();
-    public VentasDetalle DetalleSeleccionado { get; set; } = new();
+    public VentasDetalle DetalleSeleccionado { get; set; } = new() { Cantidad = 1 };
     public List<Productos> ListaProductos { get; set; } = [];
+    public List<VentasDetalle> DetallesAnteriores { get; set; } = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -112,6 +118,11 @@
         }
 
         Venta = venta;
+        DetallesAnteriores = venta.Detalles.Select(d => new VentasDetalle
+        {
+            ProductoId = d.ProductoId,
+            Cantidad = d.Cantidad
+        }).ToList();
         ActualizarTotal();
     }
 
@@ -132,13 +143,21 @@
         };
         Venta.Detalles.Add(detalle);
         ActualizarTotal();
-        DetalleSeleccionado = new VentasDetalle();
+        DetalleSeleccionado = new VentasDetalle { Cantidad = 1 };
         await Task.CompletedTask;
     }
 
     private void ActualizarTotal()
     {
         Venta.Total = Venta.Detalles.Sum(detalle => detalle.Cantidad * detalle.Precio);
+    }
+
+    private int StockDisponible(int productoId)
+    {
+        var producto = ListaProductos.Single(p => p.ProductoId == productoId);
+        return producto.Stock + DetallesAnteriores
+            .Where(d => d.ProductoId == productoId)
+            .Sum(d => d.Cantidad);
     }
 
     private void RemoverDetalle(VentasDetalle detalle)
@@ -175,6 +194,12 @@
         if (Venta.Detalles.Any(d => d.Cantidad <= 0))
         {
             toastService.ShowError("La cantidad debe ser mayor que cero.");
+            return;
+        }
+
+        if (Venta.Detalles.Any(d => d.Cantidad > StockDisponible(d.ProductoId)))
+        {
+            toastService.ShowError("La cantidad de uno de los productos excede el stock disponible.");
             return;
         }
 
