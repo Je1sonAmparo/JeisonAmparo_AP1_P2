@@ -14,7 +14,7 @@ var ConStr = builder.Configuration.GetConnectionString("SqlConStr");
 builder.Services.AddDbContextFactory<Contexto>(options =>
     options.UseSqlite(ConStr));
 
-builder.Services.AddScoped<ModelosService>();
+builder.Services.AddScoped<ProductosService>();
 
 builder.Services.AddBlazorBootstrap();
 
