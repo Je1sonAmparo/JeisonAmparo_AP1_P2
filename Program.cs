@@ -16,7 +16,6 @@ builder.Services.AddDbContextFactory<Contexto>(options =>
 
 builder.Services.AddScoped<ProductosService>();
 builder.Services.AddScoped<VentasService>();
-builder.Services.AddScoped<VentasDetalleService>();
 
 builder.Services.AddBlazorBootstrap();
 
