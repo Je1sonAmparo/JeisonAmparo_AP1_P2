@@ -125,3 +125,4 @@ public enum TipoOperacion
     Suma = 1,
     Resta = 2
 }
+
