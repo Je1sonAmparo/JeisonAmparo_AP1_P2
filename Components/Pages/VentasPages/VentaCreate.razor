@@ -1,0 +1,161 @@
+@page "/Venta/Create"
+
+@inject VentasService ventasService
+@inject ProductosService productosService
+@inject NavigationManager navigationManager
+@inject ToastService toastService
+
+<PageTitle>Crear venta</PageTitle>
+<EditForm Model="Venta" OnValidSubmit="Guardar" OnInvalidSubmit="ValidarDetalles">
+    <DataAnnotationsValidator />
+    <div class="container">
+        <div class="card shadow-lg">
+            <div class="card-header text-center">
+                <h5 class="card-title">Crear venta de productos</h5>
+            </div>
+
+            <div class="card-body">
+                <div class="row g-3">
+                    @* VentaId *@
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label"><strong>VentaId</strong></label>
+                        <InputNumber class="form-control" @bind-Value="Venta.VentaId" readonly></InputNumber>
+                    </div>
+                    @* Fecha *@
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label"><strong>Fecha</strong></label>
+                        <InputDate class="form-control" @bind-Value="Venta.Fecha"></InputDate>
+                        <ValidationMessage For="(() => Venta.Fecha)" />
+                    </div>
+                </div>
+
+                @* Observacion *@
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label"><strong>Observación</strong></label>
+                        <InputText class="form-control" @bind-Value="Venta.Observacion" />
+                        <ValidationMessage For="(() => Venta.Observacion)" />
+                    </div>
+                </div>
+
+                @* Detalles de la venta *@
+                <div class="border border-success p-3 mt-3">
+                    <h5>Detalles de productos</h5>
+                    <ProductoPicker Productos="ListaProductos"
+                                     ProductoId="DetalleSeleccionado.ProductoId"
+                                     Cantidad="DetalleSeleccionado.Cantidad"
+                                     OnProductoSelected="HandleProductoSelected" />
+                    <hr />
+                    <table class="table table-light">
+                        <thead class="table table-striped">
+                            <tr class="Text-center">
+                                <th>ProductoId</th>
+                                <th>Cantidad</th>
+                                <th>Precio</th>
+                                <th>Remover</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var detalle in Venta.Detalles)
+                            {
+                                <tr>
+                                    <td>@detalle.ProductoId</td>
+                                    <td>@detalle.Cantidad</td>
+                                    <td>@detalle.Precio.ToString("N2")</td>
+                                    <td>
+                                        <button type="button" class="btn btn-outline-danger bi bi-trash"
+                                                @onclick="() => RemoverDetalle(detalle)"></button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div class="row">
+                    <div class="col-6 offset-6">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Total</strong></label>
+                            <label class="form-control text-end"><strong>@Venta.Total.ToString("N2")</strong></label>
+                            <ValidationMessage For="(() => Venta.Total)" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer text-center mt-2">
+                <a href="/Venta/Index" class="btn btn-secondary"> <span class="bi bi-arrow-left"></span> Volver</a>
+                <button type="submit" class="btn btn-primary bi bi-floppy"> Guardar</button>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    public Ventas Venta { get; set; } = new();
+    public VentasDetalle DetalleSeleccionado { get; set; } = new();
+    public List<Productos> ListaProductos { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        ListaProductos = await productosService.GetList(p => true);
+        Venta.Fecha = DateTime.Today;
+    }
+
+    private async Task HandleProductoSelected((Productos producto, int cantidad) selection)
+    {
+        var yaExiste = Venta.Detalles.Any(d => d.ProductoId == selection.producto.ProductoId);
+        if (yaExiste)
+        {
+            toastService.ShowError("Este producto ya está agregado.");
+            return;
+        }
+
+        var detalle = new VentasDetalle
+        {
+            ProductoId = selection.producto.ProductoId,
+            Cantidad = selection.cantidad,
+            Precio = selection.producto.Precio
+        };
+        Venta.Detalles.Add(detalle);
+        ActualizarTotal();
+        DetalleSeleccionado = new VentasDetalle();
+        await Task.CompletedTask;
+    }
+
+    private void ActualizarTotal()
+    {
+        Venta.Total = Venta.Detalles.Sum(detalle => detalle.Cantidad * detalle.Precio);
+    }
+
+    private void RemoverDetalle(VentasDetalle detalle)
+    {
+        Venta.Detalles.Remove(detalle);
+        ActualizarTotal();
+    }
+
+    public async Task Guardar()
+    {
+        if (Venta.Detalles.Count == 0)
+        {
+            toastService.ShowError("Agregue al menos un producto a la venta.");
+            return;
+        }
+
+        ActualizarTotal();
+        var creado = await ventasService.Guardar(Venta);
+        if (creado)
+        {
+            toastService.ShowSuccess("Venta guardada correctamente.");
+            navigationManager.NavigateTo("/Venta/Index");
+        }
+        else
+        {
+            toastService.ShowError("No se pudo guardar la venta. Verifique las cantidades y el stock disponible.");
+        }
+    }
+
+    private void ValidarDetalles()
+    {
+        if (Venta.Detalles.Count == 0)
+            toastService.ShowError("Agregue al menos un producto a la venta.");
+    }
+}
