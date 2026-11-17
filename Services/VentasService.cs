@@ -11,6 +11,9 @@ public class VentasService(
 {
     public async Task<bool> Guardar(Ventas venta)
     {
+        if (venta.Detalles.Count == 0 || venta.Detalles.Any(d => d.Cantidad <= 0))
+            return false;
+
         if (!await Existe(venta.VentaId))
         {
             var inserto = await Insertar(venta);
@@ -33,7 +36,8 @@ public class VentasService(
     private async Task<bool> Insertar(Ventas venta)
     {
         await using var contexto = await contextFactory.CreateDbContextAsync();
-        await AfectarProductos(contexto, venta, TipoOperacion.Resta);
+        if (!await AfectarProductos(contexto, venta, TipoOperacion.Resta))
+            return false;
         contexto.Ventas.Add(venta);
         return await contexto.SaveChangesAsync() > 0;
     }
@@ -46,8 +50,10 @@ public class VentasService(
             .AsNoTracking()
             .SingleAsync(v => v.VentaId == venta.VentaId);
 
-        await AfectarProductos(contexto, anterior, TipoOperacion.Suma);
-        await AfectarProductos(contexto, venta, TipoOperacion.Resta);
+        if (!await AfectarProductos(contexto, anterior, TipoOperacion.Suma))
+            return false;
+        if (!await AfectarProductos(contexto, venta, TipoOperacion.Resta))
+            return false;
 
         foreach (var detalle in anterior.Detalles)
         {
@@ -98,25 +104,36 @@ public class VentasService(
         if (venta == null)
             return false;
 
-        await AfectarProductos(contexto, venta, TipoOperacion.Suma);
+        if (!await AfectarProductos(contexto, venta, TipoOperacion.Suma))
+            return false;
         contexto.VentasDetalle.RemoveRange(venta.Detalles);
         contexto.Ventas.Remove(venta);
         var eliminado = await contexto.SaveChangesAsync() > 0;
         return eliminado;
     }
 
-    private async Task AfectarProductos(Contexto contexto, Ventas venta, TipoOperacion tipoOperacion)
+    private async Task<bool> AfectarProductos(Contexto contexto, Ventas venta, TipoOperacion tipoOperacion)
     {
         foreach (var detalle in venta.Detalles)
         {
             var producto = await contexto.Productos
-                .SingleAsync(p => p.ProductoId == detalle.ProductoId);
+                .SingleOrDefaultAsync(p => p.ProductoId == detalle.ProductoId);
+
+            if (producto == null)
+                return false;
 
             if (tipoOperacion == TipoOperacion.Resta)
+            {
+                if (detalle.Cantidad > producto.Stock)
+                    return false;
+
                 producto.Stock -= detalle.Cantidad;
+            }
             else
                 producto.Stock += detalle.Cantidad;
         }
+
+        return true;
     }
 }
 
