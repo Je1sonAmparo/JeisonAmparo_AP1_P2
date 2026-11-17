@@ -1,0 +1,177 @@
+@page "/Venta/Index"
+
+@inject VentasService ventasService
+@inject ToastService toastService
+
+<PageTitle>Registro de Ventas</PageTitle>
+<div class="container">
+    <div class="card shadow-lg">
+        <div class="card-header d-flex justify-content-between align-center mb-4">
+            <h5 class="card-title">Registro de Ventas</h5>
+            <a href="/Venta/Create" class="btn btn-primary"> <span class="bi bi-plus-square mt-3"></span> Crear</a>
+        </div>
+
+        @*labels*@
+        <div class="card-body">
+            <div class="row">
+
+                @*Filtrar por*@
+                <div class="col-3">
+                    <label class="col-form-label"><strong>Filtrar por</strong></label>
+                </div>
+
+                @*ValorFiltro*@
+                <div class="col-4">
+                    <label class="col-form-label"><strong>B&uacute;squeda</strong></label>
+                </div>
+            </div>
+
+            @*Inputs y botones*@
+            <div class="row align-items-center">
+                @*filtro*@
+                <div class="col-3">
+                    <InputSelect class="form-select" @bind-Value="Filtro">
+                        <option value="" selected disabled>Elija una opci&oacute;n</option>
+                        <option value="VentaId">VentaId</option>
+                        <option value="Concepto">Concepto</option>
+                    </InputSelect>
+                </div>
+
+                @*Busqueda*@
+                <div class="col-4">
+                    <div class="input-group">
+                        <input class="form-control" @bind="ValorFiltro" placeholder="Buscar" />
+                        <button type="button" class="btn btn-outline-primary bi bi-search" @onclick="Buscar"></button>
+                    </div>
+                </div>
+
+                @*FiltroFecha*@
+                <div class="row mt-3">
+                    
+                    @*Desde*@
+                    <div class="col-3">
+                        <label class="col-form-label"><strong>Desde</strong></label>
+                        <InputDate class="form-control" @bind-Value="Desde"></InputDate>
+                    </div>
+
+                    @*Hasta*@
+                    <div class="col-3">
+                        <label class="col-form-label"><strong>Hasta</strong></label>
+                        <div class="input-group">
+                            <InputDate class="form-control" @bind-Value="Hasta"></InputDate>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+
+            @* Tabla *@
+            <div class="grid">
+                <QuickGrid Items="ListaVentas.AsQueryable()" Class="table table-hover mt-3">
+                    <PropertyColumn Property="@(a => a.VentaId)" Title="VentaId" Sortable="true" />
+                    <PropertyColumn Property="@(a => a.Fecha)" Title="Fecha" Format="dd/MM/yyyy" Sortable="true" />
+                    <PropertyColumn Property="@(a => a.Observacion)" Title="Observación" Sortable="true" />
+                    <PropertyColumn Property="@(a => a.Total)" Title="Total" Format="N2" Sortable="true" />
+                    <TemplateColumn Title="Opciones" Align="Align.Center">
+                        <div class="d-flex text-nowrap">
+                            <a href="/Venta/Edit/@context.VentaId"
+                               class="btn btn-outline-primary bi bi-pencil-square"></a>
+                            <button type="button" class="btn btn-outline-danger bi bi-trash ms-2" data-bs-toggle="modal"
+                                    data-bs-target="#modalEliminarVenta"
+                                    @onclick="() => ventaIdAEliminar = context.VentaId"></button>
+                        </div>
+                    </TemplateColumn>
+                </QuickGrid>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-center mb-4">
+            <label>Cantidad:  @ListaVentas.Count()</label>
+            <label>Total vendido:  @ListaVentas.Sum(a => a.Total).ToString("N2")</label>
+        </div>
+    </div>
+</div>
+
+@* Modal de eliminación *@
+<div class="modal fade" id="modalEliminarVenta" tabindex="-1" aria-labelledby="modalEliminarVentaLabel"
+     aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="modalEliminarVentaLabel">Eliminar venta</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                ¿Estás seguro de que deseas eliminar esta venta?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" data-bs-dismiss="modal" @onclick="Eliminar">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    public List<Ventas> ListaVentas { get; set; } = new List<Ventas>();
+    public string Filtro { get; set; } = string.Empty;
+    public string ValorFiltro { get; set; } = string.Empty;
+    public DateTime? Desde { get; set; }
+    public DateTime? Hasta { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        ListaVentas = await ventasService.GetList(p => true);
+
+    }
+
+    private async Task Buscar()
+    {
+        if (Desde.HasValue && Hasta.HasValue && Desde > Hasta)
+        {
+            toastService.ShowWarning("La fecha desde no puede ser mayor que la fecha hasta.");
+            return;
+        }
+
+        if (ValorFiltro.Trim() != "")
+        {
+            if (Filtro == "VentaId")
+            {
+                ListaVentas = await ventasService.GetList(v =>
+                    v.VentaId.ToString().Contains(ValorFiltro) &&
+                    (!Desde.HasValue || v.Fecha.Date >= Desde.Value.Date) &&
+                    (!Hasta.HasValue || v.Fecha.Date <= Hasta.Value.Date));
+                return;
+            }
+
+            if (Filtro == "Concepto")
+            {
+                ListaVentas = await ventasService.GetList(v =>
+                    v.Observacion.ToLower().Contains(ValorFiltro.ToLower()) &&
+                    (!Desde.HasValue || v.Fecha.Date >= Desde.Value.Date) &&
+                    (!Hasta.HasValue || v.Fecha.Date <= Hasta.Value.Date));
+                return;
+            }
+        }
+
+        ListaVentas = await ventasService.GetList(v =>
+            (!Desde.HasValue || v.Fecha.Date >= Desde.Value.Date) &&
+            (!Hasta.HasValue || v.Fecha.Date <= Hasta.Value.Date));
+    }
+
+    private int ventaIdAEliminar;
+
+    private async Task Eliminar()
+    {
+        var eliminado = await ventasService.Eliminar(ventaIdAEliminar);
+        if (eliminado)
+        {
+            toastService.ShowSuccess("Venta eliminada exitosamente");
+            await Buscar();
+        }
+        else
+        {
+            toastService.ShowError("No se pudo eliminar la venta.");
+        }
+    }
+}
+
