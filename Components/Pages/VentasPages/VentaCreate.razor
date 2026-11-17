@@ -91,7 +91,7 @@
 
 @code {
     public Ventas Venta { get; set; } = new();
-    public VentasDetalle DetalleSeleccionado { get; set; } = new();
+    public VentasDetalle DetalleSeleccionado { get; set; } = new() { Cantidad = 1 };
     public List<Productos> ListaProductos { get; set; } = [];
 
     protected override async Task OnInitializedAsync()
@@ -117,7 +117,7 @@
         };
         Venta.Detalles.Add(detalle);
         ActualizarTotal();
-        DetalleSeleccionado = new VentasDetalle();
+        DetalleSeleccionado = new VentasDetalle { Cantidad = 1 };
         await Task.CompletedTask;
     }
 
