@@ -1,3 +1,5 @@
+@inject ToastService toastService
+
 <div class="col-auto input-group align-items-center">
     <label class="col-form-label input-group-text">Seleccione:</label>
 
@@ -65,7 +67,7 @@
                 .Sum(d => d.Cantidad);
             if (Cantidad > stockDisponible)
             {
-                ErrorMessage = $"La cantidad de este producto excede el stock disponible ({stockDisponible}).";
+                toastService.ShowError($"La cantidad de este producto excede el stock disponible ({stockDisponible}).");
                 return;
             }
 
