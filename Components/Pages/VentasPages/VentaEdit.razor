@@ -1,0 +1,193 @@
+@page "/Venta/Edit/{VentaId:int}"
+
+@inject VentasService ventasService
+@inject ProductosService productosService
+@inject NavigationManager navigationManager
+@inject ToastService toastService
+
+<PageTitle>Editar venta</PageTitle>
+<EditForm Model="Venta" OnValidSubmit="Modificar">
+    <DataAnnotationsValidator />
+    <div class="container">
+        <div class="card shadow-lg">
+            <div class="card-header text-center">
+                <h5 class="card-title">Editar venta de productos</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    @* Fecha *@
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label"><strong>Fecha</strong></label>
+                        <InputDate class="form-control" @bind-Value="Venta.Fecha" />
+                        <ValidationMessage For="(() => Venta.Fecha)" />
+                    </div>
+
+                    @* Observacion *@
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label"><strong>Observación</strong></label>
+                        <InputText class="form-control" @bind-Value="Venta.Observacion" />
+                        <ValidationMessage For="(() => Venta.Observacion)" />
+                    </div>
+                </div>
+
+                @* Detalles de la venta *@
+                <div class="border border-success p-3 mt-3">
+                    <h5>Detalles de productos</h5>
+                    <ProductoPicker Productos="ListaProductos"
+                                    ProductoId="DetalleSeleccionado.ProductoId"
+                                    Cantidad="DetalleSeleccionado.Cantidad"
+                                    OnProductoSelected="HandleProductoSelected" />
+                    <hr />
+                    <div class="grid">
+                        <QuickGrid Items="Venta.Detalles.AsQueryable()" Class="table table-hover mt-3">
+                            <PropertyColumn Property="@(d => d.ProductoId)" Title="ProductoId" Sortable="true" />
+                            <TemplateColumn Title="Cantidad" Context="detalle">
+                                <InputNumber class="form-control" @bind-Value="detalle.Cantidad" @bind-Value:after="ActualizarTotal" min="1" />
+                                <ValidationMessage For="(() => detalle.Cantidad)" />
+                            </TemplateColumn>
+                            <PropertyColumn Property="@(d => d.Precio)" Title="Precio" Format="N2" Sortable="true" />
+                            <TemplateColumn Title="Remover" Align="Align.Center" Context="detalle">
+                                <button type="button" class="btn btn-outline-danger bi bi-trash"
+                                        @onclick="() => RemoverDetalle(detalle)"></button>
+                            </TemplateColumn>
+                        </QuickGrid>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6 offset-6">
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Total</strong></label>
+                            <label class="form-control text-end"><strong>@Venta.Total.ToString("N2")</strong></label>
+                            <ValidationMessage For="(() => Venta.Total)" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer text-center mt-2">
+                <a href="/Venta/Index" class="btn btn-secondary"> <span class="bi bi-arrow-left"></span> Volver</a>
+                <button type="submit" class="btn btn-primary bi bi-floppy"> Modificar</button>
+                <button type="button" class="btn btn-danger bi bi-trash" data-bs-toggle="modal" data-bs-target="#modalEliminarVenta"> Eliminar</button>
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@* Modal de eliminación *@
+<div class="modal fade" id="modalEliminarVenta" tabindex="-1" aria-labelledby="modalEliminarVentaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="modalEliminarVentaLabel">Eliminar venta</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                ¿Estás seguro de que deseas eliminar esta venta?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" data-bs-dismiss="modal" @onclick="Eliminar">Sí, eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int VentaId { get; set; }
+
+    public Ventas Venta { get; set; } = new();
+    public VentasDetalle DetalleSeleccionado { get; set; } = new();
+    public List<Productos> ListaProductos { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        ListaProductos = await productosService.GetList(p => true);
+
+        var venta = await ventasService.Buscar(VentaId);
+        if (venta == null)
+        {
+            toastService.ShowError("No se encontró la venta.");
+            navigationManager.NavigateTo("/Venta/Index");
+            return;
+        }
+
+        Venta = venta;
+        ActualizarTotal();
+    }
+
+    private async Task HandleProductoSelected((Productos producto, int cantidad) selection)
+    {
+        var yaExiste = Venta.Detalles.Any(d => d.ProductoId == selection.producto.ProductoId);
+        if (yaExiste)
+        {
+            toastService.ShowError("Este producto ya está agregado.");
+            return;
+        }
+
+        var detalle = new VentasDetalle
+        {
+            ProductoId = selection.producto.ProductoId,
+            Cantidad = selection.cantidad,
+            Precio = selection.producto.Precio
+        };
+        Venta.Detalles.Add(detalle);
+        ActualizarTotal();
+        DetalleSeleccionado = new VentasDetalle();
+        await Task.CompletedTask;
+    }
+
+    private void ActualizarTotal()
+    {
+        Venta.Total = Venta.Detalles.Sum(detalle => detalle.Cantidad * detalle.Precio);
+    }
+
+    private void RemoverDetalle(VentasDetalle detalle)
+    {
+        Venta.Detalles.Remove(detalle);
+        ActualizarTotal();
+    }
+
+    private async Task Eliminar()
+    {
+        if (Venta.VentaId == 0)
+            return;
+
+        var eliminado = await ventasService.Eliminar(Venta.VentaId);
+        if (eliminado)
+        {
+            toastService.ShowSuccess("Venta eliminada correctamente.");
+            navigationManager.NavigateTo("/Venta/Index");
+        }
+        else
+        {
+            toastService.ShowError("No se pudo eliminar la venta.");
+        }
+    }
+
+    private async Task Modificar()
+    {
+        if (Venta.Detalles.Count == 0)
+        {
+            toastService.ShowError("Agregue al menos un producto a la venta.");
+            return;
+        }
+
+        if (Venta.Detalles.Any(d => d.Cantidad <= 0))
+        {
+            toastService.ShowError("La cantidad debe ser mayor que cero.");
+            return;
+        }
+
+        ActualizarTotal();
+        var modificado = await ventasService.Guardar(Venta);
+        if (modificado)
+        {
+            toastService.ShowSuccess("Venta modificada correctamente.");
+            navigationManager.NavigateTo("/Venta/Index");
+        }
+        else
+        {
+            toastService.ShowError("No se pudo modificar la venta.");
+        }
+    }
+}
